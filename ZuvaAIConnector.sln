@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.10.35013.160
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ZuvaAIConnector", "ZuvaAIConnector\ZuvaAIConnector.csproj", "{DD4D4ACC-06EA-4CA5-A52B-195648BBDD60}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ZuvaAIConnectorTest", "ZuvaAIConnectorTest\ZuvaAIConnectorTest.csproj", "{9FB1F4E3-5F46-44A8-9A89-D65AAF90708E}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{DD4D4ACC-06EA-4CA5-A52B-195648BBDD60}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DD4D4ACC-06EA-4CA5-A52B-195648BBDD60}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DD4D4ACC-06EA-4CA5-A52B-195648BBDD60}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DD4D4ACC-06EA-4CA5-A52B-195648BBDD60}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9FB1F4E3-5F46-44A8-9A89-D65AAF90708E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9FB1F4E3-5F46-44A8-9A89-D65AAF90708E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9FB1F4E3-5F46-44A8-9A89-D65AAF90708E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9FB1F4E3-5F46-44A8-9A89-D65AAF90708E}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {F9F43CE5-E06B-4AA3-8662-C11FA87E1153}
+	EndGlobalSection
+EndGlobal
