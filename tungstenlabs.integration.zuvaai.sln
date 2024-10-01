@@ -3,9 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.10.35013.160
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ZuvaAIConnector", "ZuvaAIConnector\ZuvaAIConnector.csproj", "{DD4D4ACC-06EA-4CA5-A52B-195648BBDD60}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "tungstenlabs.integration.zuvaai", "tungstenlabs.integration.zuvaai\tungstenlabs.integration.zuvaai.csproj", "{DD4D4ACC-06EA-4CA5-A52B-195648BBDD60}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ZuvaAIConnectorTest", "ZuvaAIConnectorTest\ZuvaAIConnectorTest.csproj", "{9FB1F4E3-5F46-44A8-9A89-D65AAF90708E}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "tungstenlabs.integration.zuvaai.tests", "tungstenlabs.integration.zuvaai.tests\tungstenlabs.integration.zuvaai.tests.csproj", "{9FB1F4E3-5F46-44A8-9A89-D65AAF90708E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

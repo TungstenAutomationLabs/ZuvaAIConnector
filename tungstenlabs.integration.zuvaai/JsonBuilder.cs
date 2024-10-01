@@ -48,24 +48,31 @@ namespace tungstenlabs.integration.zuvaai
                     case '\\':
                         result.Append("\\\\");
                         break;
+
                     case '"':
                         result.Append("\\\"");
                         break;
+
                     case '\b':
                         result.Append("\\b");
                         break;
+
                     case '\f':
                         result.Append("\\f");
                         break;
+
                     case '\n':
                         result.Append("\\n");
                         break;
+
                     case '\r':
                         result.Append("\\r");
                         break;
+
                     case '\t':
                         result.Append("\\t");
                         break;
+
                     default:
                         result.Append(c);
                         break;

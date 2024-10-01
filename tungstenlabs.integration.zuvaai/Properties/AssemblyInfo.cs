@@ -1,15 +1,13 @@
-﻿using System.Reflection;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
-
+﻿using System.Runtime.InteropServices;
+using System.Reflection;
 // General Information about an assembly is controlled through the following
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("ZuvaAIConnector")]
+[assembly: AssemblyTitle("tungstenlabs.integration.zuvaai")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Tungsten Automation")]
-[assembly: AssemblyProduct("ZuvaAIConnector")]
+[assembly: AssemblyProduct("tungstenlabs.integration.zuvaai")]
 [assembly: AssemblyCopyright("Copyright ©  2024")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
@@ -20,7 +18,7 @@ using System.Runtime.InteropServices;
 [assembly: ComVisible(false)]
 
 // The following GUID is for the ID of the typelib if this project is exposed to COM
-[assembly: Guid("dd4d4acc-06ea-4ca5-a52b-195648bbdd60")]
+[assembly: Guid("dbf06e98-83b8-4b3c-88b0-f6954f2dfd93")]
 
 // Version information for an assembly consists of the following four values:
 //
@@ -32,5 +30,5 @@ using System.Runtime.InteropServices;
 // You can specify all the values or you can default the Build and Revision Numbers
 // by using the '*' as shown below:
 // [assembly: AssemblyVersion("1.0.*")]
-[assembly: AssemblyVersion("1.0.0.0")]
+[assembly: AssemblyVersion("1.0.0.*")]
 [assembly: AssemblyFileVersion("1.0.0.0")]

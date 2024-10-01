@@ -1,35 +1,23 @@
-﻿using Newtonsoft.Json.Linq;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Net;
-using System.Net.Http;
-using System.Text;
-using System.Text.RegularExpressions;
-using System.Threading;
-using static System.Net.Mime.MediaTypeNames;
-
-/*
+﻿/*
  * tungstenlabs.integration.zuvaai
- * 
+ *
  * End User License Agreement (EULA)
- * 
+ *
  * IMPORTANT: PLEASE READ THIS AGREEMENT CAREFULLY BEFORE USING THIS SOFTWARE.
- * 
+ *
  * 1. GRANT OF LICENSE: Tungsten Automation grants you a limited, non-exclusive,
  * non-transferable, and revocable license to use this software solely for the
  * purposes described in the documentation accompanying the software.
- * 
+ *
  * 2. RESTRICTIONS: You may not sublicense, rent, lease, sell, distribute,
  * redistribute, assign, or otherwise transfer your rights to this software.
  * You may not reverse engineer, decompile, or disassemble this software,
  * except and only to the extent that such activity is expressly permitted by
  * applicable law notwithstanding this limitation.
- * 
+ *
  * 3. COPYRIGHT: This software is protected by copyright laws and international
  * copyright treaties, as well as other intellectual property laws and treaties.
- * 
+ *
  * 4. DISCLAIMER OF WARRANTY: THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS
  * OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
  * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN
@@ -40,29 +28,39 @@ using static System.Net.Mime.MediaTypeNames;
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
  * OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
+ *
  * 5. TERMINATION: Without prejudice to any other rights, Tungsten Automation may
  * terminate this EULA if you fail to comply with the terms and conditions of this
  * EULA. In such event, you must destroy all copies of the software and all of its
  * component parts.
- * 
+ *
  * 6. GOVERNING LAW: This agreement shall be governed by the laws of USA,
  * without regard to conflicts of laws principles. Any disputes arising hereunder shall
  * be subject to the exclusive jurisdiction of the courts of USA.
- * 
+ *
  * 7. ENTIRE AGREEMENT: This EULA constitutes the entire agreement between you and
  * Tungsten Automation relating to the software and supersedes all prior or contemporaneous
  * understandings regarding such subject matter. No amendment to or modification of this
  * EULA will be binding unless made in writing and signed by Tungsten Automation.
- * 
+ *
  * Tungsten Automation
  * www.tungstenautomation.com
  * 09/30/2024
  */
 
+using Newtonsoft.Json.Linq;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Net;
+using System.Text;
+using System.Text.RegularExpressions;
+using System.Threading;
+
 namespace tungstenlabs.integration.zuvaai
 {
-    public class ZuvaAIConnector
+    public class APIHelper
     {
         private const string ZuvaUri = "https://us.app.zuva.ai/api/v2";
 
@@ -165,7 +163,6 @@ namespace tungstenlabs.integration.zuvaai
 
             return GetJSONPropertyValue(text, "file_id");
         }
-
 
         /// <summary>
         /// Gets the classification result from Zuva; you first need to run ZuvaUploadFile to get the file ID
@@ -437,7 +434,6 @@ namespace tungstenlabs.integration.zuvaai
                 }
 
                 return JsonBuilder.BuildJson(new string[] { "Key", "Value1", "Value2" }, resultArray);
-
             }
             catch (System.NullReferenceException ex)
             {
@@ -523,7 +519,6 @@ namespace tungstenlabs.integration.zuvaai
                 }
 
                 return JsonBuilder.BuildJson(new string[] { "Key", "Value1", "Value2" }, resultArray);
-
             }
             catch (System.NullReferenceException ex)
             {
@@ -568,7 +563,6 @@ namespace tungstenlabs.integration.zuvaai
             }
             return concatenatedText;
         }
-
 
         /// <summary>
         /// Gets the first instance of extraction results for the specified Field ID.
@@ -845,7 +839,6 @@ namespace tungstenlabs.integration.zuvaai
                     var extractionsArray = result["extractions"].Children();
                     foreach (var extraction in extractionsArray)
                     {
-
                         //if (!string.IsNullOrEmpty(normalizationElement.First.ToString()))
                         if (extraction.First.ToString().Contains(normalizationField))
                         {
@@ -916,9 +909,10 @@ namespace tungstenlabs.integration.zuvaai
             return null; // Return null if the normalization field is not found or the properties are missing
         }
 
-        #endregion
+        #endregion "Public Methods"
 
         #region "Private Methods"
+
         private byte[] GetKTADocumentFile(string docID, string ktaSDKUrl, string sessionID)
         {
             byte[] result = new byte[1];
@@ -928,7 +922,6 @@ namespace tungstenlabs.integration.zuvaai
 
             try
             {
-
                 //Setting the URi and calling the get document API
                 var KTAGetDocumentFile = ktaSDKUrl + "/CaptureDocumentService.svc/json/GetDocumentFile2";
                 HttpWebRequest httpWebRequest = (HttpWebRequest)WebRequest.Create(KTAGetDocumentFile);
@@ -958,7 +951,6 @@ namespace tungstenlabs.integration.zuvaai
                         {
                             count = responseStream.Read(buffer, 0, buffer.Length);
                             memoryStream.Write(buffer, 0, count);
-
                         } while (count != 0);
 
                         result = memoryStream.ToArray();
@@ -972,7 +964,6 @@ namespace tungstenlabs.integration.zuvaai
                 status = "An error occured: " + ex.ToString();
                 return result;
             }
-
         }
 
         private static string GetJSONPropertyValue(string jsonString, string propertyName)
@@ -1005,7 +996,6 @@ namespace tungstenlabs.integration.zuvaai
             return string.Empty; // Property not found, return an empty string or throw an exception as needed
         }
 
-
         private static string EscapeFieldList(string input)
         {
             if (string.IsNullOrEmpty(input))
@@ -1031,20 +1021,7 @@ namespace tungstenlabs.integration.zuvaai
                 return authToken;
             else
                 return "Bearer " + authToken;
-
         }
-
-        //private string GetNormalizationElement(string extractions, string normalizationField)
-        //{
-
-        //    if (extractions.Contains(normalizationField))
-        //    {
-        //        string normalizationElement = GetJSONPropertyValue(extractions, normalizationField);
-        //        return normalizationElement;
-        //    }
-
-        //    return null; // Return null if the fieldId does not match or the normalization field is not found
-        //}
 
         private string CleanHtml(string html)
         {
@@ -1149,6 +1126,6 @@ namespace tungstenlabs.integration.zuvaai
             return mimeType;  // Return default type if none of the byte signatures match
         }
 
-        #endregion
+        #endregion "Private Methods"
     }
 }

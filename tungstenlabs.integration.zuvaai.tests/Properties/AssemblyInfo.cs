@@ -1,18 +1,15 @@
-using System.Reflection;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Reflection;
 
-[assembly: AssemblyTitle("ZuvaAIConnectorTest")]
+[assembly: AssemblyTitle("tungstenlabs.integration.zuvaai.tests")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("")]
-[assembly: AssemblyProduct("ZuvaAIConnectorTest")]
+[assembly: AssemblyProduct("tungstenlabs.integration.zuvaai.tests")]
 [assembly: AssemblyCopyright("Copyright ©  2024")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
-
 [assembly: ComVisible(false)]
-
 [assembly: Guid("9fb1f4e3-5f46-44a8-9a89-d65aaf90708e")]
 
 // [assembly: AssemblyVersion("1.0.*")]
