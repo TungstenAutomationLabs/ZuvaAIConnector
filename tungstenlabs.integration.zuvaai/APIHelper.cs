@@ -69,28 +69,27 @@ namespace tungstenlabs.integration.zuvaai
         /// <summary>
         /// Uploads the base64-string based file to the Zuva DocAI service.
         /// </summary>
-        /// <param name="docID">TotalAgility Document ID.</param>
-        /// <param name="zuvaToken">Token provided by Zuva; please include 'Bearer' before it.</param>
+        /// <param name="base64Doc">Document as Base64 string</param>
+        /// <param name="zuvaToken">Token provided by Zuva</param>
         /// <returns>Zuva File ID.</returns>
         public string ZuvaUploadFileBase64String(string base64Doc, string zuvaToken)
         {
             if (base64Doc.Trim().Length == 0)
             {
-                throw new Exception("TotalAgility Document needs to be populated");
+                throw new Exception("The base64Doc needs to be populated");
             }
 
             if (zuvaToken.Trim().Length == 0)
             {
-                throw new Exception("zuvaToken needs to be populated");
+                throw new Exception("The zuvaToken needs to be populated");
             }
 
             string text = "Nothing read";
-            //byte[] payload = GetKTADocumentFile(docID, ktaSDKUrl, sessionID);
             byte[] payload = Convert.FromBase64String(base64Doc);
 
             //Now let's send the file to Zuva
             HttpWebRequest httpWebRequest = (HttpWebRequest)WebRequest.Create(ZuvaUri + "/files");
-            httpWebRequest.Headers.Add("Authorization", zuvaToken);
+            httpWebRequest.Headers.Add("Authorization", FormatZuvaAuthToken(zuvaToken));
             httpWebRequest.ContentType = "application/pdf";
             httpWebRequest.ContentLength = payload.Length;
             httpWebRequest.Method = "POST";
@@ -124,17 +123,17 @@ namespace tungstenlabs.integration.zuvaai
         {
             if (docID.Trim().Length == 0)
             {
-                throw new Exception("TotalAgility Doc ID needs to be populated");
-            }
-
-            if (zuvaToken.Trim().Length == 0)
-            {
-                throw new Exception("zuvaToken needs to be populated");
+                throw new Exception("The TotalAgility docID needs to be populated");
             }
 
             if ((ktaSDKUrl.Trim().Length == 0) || (sessionID.Trim().Length == 0))
             {
-                throw new Exception("TotalAgility information needs to be populated");
+                throw new Exception("The TotalAgility API information needs to be populated");
+            }
+
+            if (zuvaToken.Trim().Length == 0)
+            {
+                throw new Exception("The zuvaToken needs to be populated");
             }
 
             string text = "Nothing read";
@@ -143,7 +142,7 @@ namespace tungstenlabs.integration.zuvaai
             //Now let's send the file to Zuva
             HttpWebRequest httpWebRequest = (HttpWebRequest)WebRequest.Create(ZuvaUri + "/files");
             httpWebRequest.Headers.Add("Authorization", FormatZuvaAuthToken(zuvaToken));
-            httpWebRequest.ContentType = GetMimeType("", payload);
+            httpWebRequest.ContentType = "application/pdf";
             httpWebRequest.ContentLength = payload.Length;
             httpWebRequest.Method = "POST";
             httpWebRequest.Accept = "application/json";
@@ -168,7 +167,7 @@ namespace tungstenlabs.integration.zuvaai
         /// Gets the classification result from Zuva; you first need to run ZuvaUploadFile to get the file ID
         /// </summary>
         /// <param name="zuvaFileID">File ID provided by Zuva.</param>
-        /// <param name="zuvaToken">Token provided by Zuva; please include 'Bearer' before it.</param>
+        /// <param name="zuvaToken">Token provided by Zuva.</param>
         /// <returns>Classification result from Zuva.</returns>
         public string ZuvaGetClassificationResult(string zuvaFileID, string zuvaToken)
         {
@@ -190,7 +189,7 @@ namespace tungstenlabs.integration.zuvaai
 
             //Send the classification request to Zuva
             HttpWebRequest httpWebRequest = (HttpWebRequest)WebRequest.Create(ZuvaUri + "/classification");
-            httpWebRequest.Headers.Add("Authorization", zuvaToken);
+            httpWebRequest.Headers.Add("Authorization", FormatZuvaAuthToken(zuvaToken));
             httpWebRequest.ContentType = "application/json";
             httpWebRequest.Method = "POST";
             httpWebRequest.Accept = "application/json";
@@ -212,12 +211,13 @@ namespace tungstenlabs.integration.zuvaai
             string requestid = GetJSONPropertyValue(text, "request_id");
             string status = "queued";
 
-            //Send the classification request status to Zuva
+            // Poll Zuva until the classification is complete
+            DateTime startTime = DateTime.Now;
             while ((status == "queued") || (status == "processing"))
             {
                 Thread.Sleep(5000);
                 httpWebRequest = (HttpWebRequest)WebRequest.Create(ZuvaUri + "/classification/" + requestid);
-                httpWebRequest.Headers.Add("Authorization", zuvaToken);
+                httpWebRequest.Headers.Add("Authorization", FormatZuvaAuthToken(zuvaToken));
                 httpWebRequest.Method = "GET";
                 httpWebResponse = (HttpWebResponse)httpWebRequest.GetResponse();
                 using (var sr = new StreamReader(httpWebResponse.GetResponseStream()))
@@ -225,21 +225,27 @@ namespace tungstenlabs.integration.zuvaai
                     text = sr.ReadToEnd();
                 }
                 status = GetJSONPropertyValue(text, "status");
+
+                // Optional: Break out if the process is taking too long
+                if ((DateTime.Now - startTime).TotalMinutes > 10) // Timeout after 10 minutes
+                {
+                    throw new TimeoutException("Zuva processing timed out after 10 minutes.");
+                }
             }
 
             if (status != "complete")
                 throw new Exception("Zuva Classification threw an error: " + text);
-            else
-                return GetJSONPropertyValue(text, "classification");
+
+            return GetJSONPropertyValue(text, "classification");
         }
 
         /// <summary>
         /// Gets the extraction results from Zuva for the file ID provided.
-        /// Method includes a 5 second wait in the extraction loop, while it waits for Zuva's process to complete.
+        /// Method synchronously polls for Zuva's process to complete.
         /// </summary>
         /// <param name="zuvaFileID">File ID provided by Zuva.</param>
         /// <param name="zuvaFieldList">Comma-delimited list of fields to be extracted.</param>
-        /// <param name="zuvaToken">Token provided by Zuva; please include 'Bearer' before it.</param>
+        /// <param name="zuvaToken">Token provided by Zuva.</param>
         /// <returns>JSON representation of the extraction results; this also included eOCR information.</returns>
         public string ZuvaGetExtractionResult(string zuvaFileID, string zuvaFieldList, string zuvaToken)
         {
@@ -255,7 +261,6 @@ namespace tungstenlabs.integration.zuvaai
                 throw new Exception("zuvaToken needs to be populated");
             }
 
-            string text = "Nothing read";
             string json = "{\"field_ids\": [ " + EscapeFieldList(zuvaFieldList) + " ], \"file_ids\": [ \"" + zuvaFileID + "\" ]}";
 
             // Convert the JSON data to bytes
@@ -263,7 +268,7 @@ namespace tungstenlabs.integration.zuvaai
 
             //Send the classification request to Zuva
             HttpWebRequest httpWebRequest = (HttpWebRequest)WebRequest.Create(ZuvaUri + "/extraction");
-            httpWebRequest.Headers.Add("Authorization", zuvaToken);
+            httpWebRequest.Headers.Add("Authorization", FormatZuvaAuthToken(zuvaToken));
             httpWebRequest.ContentType = "application/json";
             httpWebRequest.Method = "POST";
             httpWebRequest.Accept = "application/json";
@@ -276,126 +281,56 @@ namespace tungstenlabs.integration.zuvaai
                 requestStream.Close();
             }
 
-            HttpWebResponse httpWebResponse = (HttpWebResponse)httpWebRequest.GetResponse();
+            string text;
+            using (HttpWebResponse httpWebResponse = (HttpWebResponse)httpWebRequest.GetResponse())
             using (var sr = new StreamReader(httpWebResponse.GetResponseStream()))
             {
                 text = sr.ReadToEnd();
             }
 
-            string requestid = GetJSONPropertyValue(text, "request_id");
+            string requestId = GetJSONPropertyValue(text, "request_id");
             string status = "queued";
 
-            //Send the classification request status to Zuva
-            while ((status == "queued") || (status == "processing"))
+            // Poll Zuva until the extraction is complete
+            DateTime startTime = DateTime.Now;
+            while (status == "queued" || status == "processing")
             {
+                // Sleep for 5 seconds to avoid excessive polling
                 Thread.Sleep(5000);
-                httpWebRequest = (HttpWebRequest)WebRequest.Create(ZuvaUri + "/extraction/" + requestid);
-                httpWebRequest.Headers.Add("Authorization", zuvaToken);
+
+                httpWebRequest = (HttpWebRequest)WebRequest.Create(ZuvaUri + "/extraction/" + requestId);
+                httpWebRequest.Headers.Add("Authorization", FormatZuvaAuthToken(zuvaToken));
                 httpWebRequest.Method = "GET";
-                httpWebResponse = (HttpWebResponse)httpWebRequest.GetResponse();
+
+                using (HttpWebResponse httpWebResponse = (HttpWebResponse)httpWebRequest.GetResponse())
                 using (var sr = new StreamReader(httpWebResponse.GetResponseStream()))
                 {
                     text = sr.ReadToEnd();
                 }
+
                 status = GetJSONPropertyValue(text, "status");
+
+                // Optional: Break out if the process is taking too long
+                if ((DateTime.Now - startTime).TotalMinutes > 10) // Timeout after 10 minutes
+                {
+                    throw new TimeoutException("Zuva processing timed out after 10 minutes.");
+                }
             }
 
             if (status != "complete")
                 throw new Exception("Zuva Extraction threw an error: " + text);
-            else
-            {
-                httpWebRequest = (HttpWebRequest)WebRequest.Create(ZuvaUri + "/extraction/" + requestid + "/results/text");
-                httpWebRequest.Headers.Add("Authorization", zuvaToken);
-                httpWebRequest.Method = "GET";
-                httpWebResponse = (HttpWebResponse)httpWebRequest.GetResponse();
-                using (var sr = new StreamReader(httpWebResponse.GetResponseStream()))
-                {
-                    result = sr.ReadToEnd();
-                }
-            }
-            return result;
-        }
 
-        /// <summary>
-        /// Gets the extraction results from Zuva for the file ID provided.
-        /// Method includes a 5 second wait in the extraction loop, while it waits for Zuva's process to complete.
-        /// </summary>
-        /// <param name="zuvaFileID">File ID provided by Zuva.</param>
-        /// <param name="zuvaAnswerID">Comma-delimited list of fields to be extracted.</param>
-        /// <param name="zuvaToken">Token provided by Zuva; please include 'Bearer' before it.</param>
-        /// <returns>JSON representation of the extraction results; this also included eOCR information.</returns>
-        public string ZuvaGetAnswerResult(string zuvaFileID, string zuvaAnswerID, string zuvaToken)
-        {
-            string result;
+            // Retrieve the extraction results
+            httpWebRequest = (HttpWebRequest)WebRequest.Create(ZuvaUri + "/extraction/" + requestId + "/results/text");
+            httpWebRequest.Headers.Add("Authorization", FormatZuvaAuthToken(zuvaToken));
+            httpWebRequest.Method = "GET";
 
-            if (zuvaFileID.Trim().Length == 0)
-            {
-                throw new Exception("zuvaFileID needs to be populated");
-            }
-
-            if (zuvaToken.Trim().Length == 0)
-            {
-                throw new Exception("zuvaToken needs to be populated");
-            }
-
-            string text = "Nothing read";
-            string json = "{\"field_ids\": [ " + EscapeFieldList(zuvaAnswerID) + " ], \"file_ids\": [ \"" + zuvaFileID + "\" ]}";
-
-            // Convert the JSON data to bytes
-            byte[] jsonDataBytes = Encoding.UTF8.GetBytes(json);
-
-            //Send the classification request to Zuva
-            HttpWebRequest httpWebRequest = (HttpWebRequest)WebRequest.Create(ZuvaUri + "/extraction");
-            httpWebRequest.Headers.Add("Authorization", zuvaToken);
-            httpWebRequest.ContentType = "application/json";
-            httpWebRequest.Method = "POST";
-            httpWebRequest.Accept = "application/json";
-            httpWebRequest.ContentLength = jsonDataBytes.Length;
-
-            // Write the JSON data to the request stream
-            using (Stream requestStream = httpWebRequest.GetRequestStream())
-            {
-                requestStream.Write(jsonDataBytes, 0, jsonDataBytes.Length);
-                requestStream.Close();
-            }
-
-            HttpWebResponse httpWebResponse = (HttpWebResponse)httpWebRequest.GetResponse();
+            using (HttpWebResponse httpWebResponse = (HttpWebResponse)httpWebRequest.GetResponse())
             using (var sr = new StreamReader(httpWebResponse.GetResponseStream()))
             {
-                text = sr.ReadToEnd();
+                result = sr.ReadToEnd();
             }
 
-            string requestid = GetJSONPropertyValue(text, "request_id");
-            string status = "queued";
-
-            //Send the extraction request status to Zuva
-            while ((status == "queued") || (status == "processing"))
-            {
-                Thread.Sleep(5000);
-                httpWebRequest = (HttpWebRequest)WebRequest.Create(ZuvaUri + "/extraction/" + requestid);
-                httpWebRequest.Headers.Add("Authorization", zuvaToken);
-                httpWebRequest.Method = "GET";
-                httpWebResponse = (HttpWebResponse)httpWebRequest.GetResponse();
-                using (var sr = new StreamReader(httpWebResponse.GetResponseStream()))
-                {
-                    text = sr.ReadToEnd();
-                }
-                status = GetJSONPropertyValue(text, "status");
-            }
-
-            if (status != "complete")
-                throw new Exception("Zuva Extraction threw an error: " + text);
-            else
-            {
-                httpWebRequest = (HttpWebRequest)WebRequest.Create(ZuvaUri + "/extraction/" + requestid + "/results/text");
-                httpWebRequest.Headers.Add("Authorization", zuvaToken);
-                httpWebRequest.Method = "GET";
-                httpWebResponse = (HttpWebResponse)httpWebRequest.GetResponse();
-                using (var sr = new StreamReader(httpWebResponse.GetResponseStream()))
-                {
-                    result = sr.ReadToEnd();
-                }
-            }
             return result;
         }
 
@@ -419,7 +354,6 @@ namespace tungstenlabs.integration.zuvaai
                     var extractionsArray = result["extractions"].Children();
                     foreach (var extraction in extractionsArray)
                     {
-                        //var text = CleanHtml(extraction["text"].ToString());
                         var text = extraction["text"].ToString();
                         resultList.Add(new string[] { resultFieldId, text, "" });
                     }
@@ -444,34 +378,6 @@ namespace tungstenlabs.integration.zuvaai
 
                 return JsonBuilder.BuildJson(new string[] { "Key", "Value1", "Value2" }, resultArray);
             }
-        }
-
-        // <summary>
-        /// Gets the extraction results from Zuva for the file ID provided & concatenates it to the string provided.
-        /// Method includes a 5 second wait in the extraction loop, while it waits for Zuva's process to complete.
-        /// </summary>
-        /// <param name="zuvaFileID">File ID provided by Zuva.</param>
-        /// <param name="zuvaFieldList">Comma-delimited list of fields to be extracted.</param>
-        /// <param name="zuvaToken">Token provided by Zuva; please include 'Bearer' before it.</param>
-        /// <param name="stringToConcat">String to concatenate the results to, separated by "--".</param>
-        /// <returns>Concatenated string with the extraction results.</returns>
-        public string ZuvaExtractAndConcat(string zuvaFileID, string zuvaFieldList, string zuvaToken, string stringToConcat)
-        {
-            string result = "";
-
-            if ((zuvaFileID != "") && (zuvaFieldList != ""))
-            {
-                string extraction = ZuvaGetExtractionResult(zuvaFileID, zuvaFieldList, zuvaToken);
-                string extractionresults = ConcatExtractionResultsForField(zuvaFieldList, extraction);
-                //string cleanresults = CleanHtml(extractionresults);
-
-                if (stringToConcat.Length > 0)
-                    result = stringToConcat + " -- " + extractionresults;
-                else
-                    result = extractionresults;
-            }
-
-            return result;
         }
 
         /// <summary>
@@ -531,6 +437,34 @@ namespace tungstenlabs.integration.zuvaai
             }
         }
 
+        // <summary>
+        /// Gets the extraction results from Zuva for the file ID provided & concatenates it to the string provided.
+        /// Method includes a 5 second wait in the extraction loop, while it waits for Zuva's process to complete.
+        /// </summary>
+        /// <param name="zuvaFileID">File ID provided by Zuva.</param>
+        /// <param name="zuvaFieldList">Comma-delimited list of fields to be extracted.</param>
+        /// <param name="zuvaToken">Token provided by Zuva; please include 'Bearer' before it.</param>
+        /// <param name="stringToConcat">String to concatenate the results to, separated by "--".</param>
+        /// <returns>Concatenated string with the extraction results.</returns>
+        public string ZuvaExtractAndConcat(string zuvaFileID, string zuvaFieldList, string zuvaToken, string stringToConcat)
+        {
+            string result = "";
+
+            if ((zuvaFileID != "") && (zuvaFieldList != ""))
+            {
+                string extraction = ZuvaGetExtractionResult(zuvaFileID, zuvaFieldList, zuvaToken);
+                string extractionresults = ConcatExtractionResultsForField(zuvaFieldList, extraction);
+
+                if (stringToConcat.Length > 0)
+                    result = stringToConcat + " -- " + extractionresults;
+                else
+                    result = extractionresults;
+            }
+
+            return result;
+        }
+
+
         /// <summary>
         /// Concatenates all text extracted from the results for the specified Field ID.
         /// </summary>
@@ -564,350 +498,6 @@ namespace tungstenlabs.integration.zuvaai
             return concatenatedText;
         }
 
-        /// <summary>
-        /// Gets the first instance of extraction results for the specified Field ID.
-        /// </summary>
-        /// <param name="zuvaFieldID">Field ID to filter results.</param>
-        /// <param name="extractionResult">Resulting JSON from calling the ZuvaGetExtractionResult method.</param>
-        /// <returns>First instance of text results.</returns>
-        public string GetFirstFromExtractionResultForField(string zuvaFieldID, string extractionResult)
-        {
-            JObject jsonObject = JObject.Parse(extractionResult);
-            var resultsArray = jsonObject["results"].Children();
-
-            foreach (var result in resultsArray)
-            {
-                var resultFieldId = result["field_id"].ToString();
-                if (FindValueInList(resultFieldId, zuvaFieldID))
-                {
-                    var extractionsArray = result["extractions"].Children();
-                    foreach (var extraction in extractionsArray)
-                    {
-                        var text = extraction["text"]?.ToString();
-                        if (text != null)
-                        {
-                            return text;
-                        }
-                    }
-                }
-            }
-
-            return null; // Return null if no matching "text" property is found for the specified "field_id"
-        }
-
-        /// <summary>
-        /// Gets the last instance of extraction results for the specified Field ID.
-        /// </summary>
-        /// <param name="zuvaFieldID">Field ID to filter results.</param>
-        /// <param name="extractionResult">Resulting JSON from calling the ZuvaGetExtractionResult method.</param>
-        /// <returns>Last instance of text results.</returns>
-        public string GetLastFromExtractionResultForField(string zuvaFieldID, string extractionResult)
-        {
-            JObject jsonObject = JObject.Parse(extractionResult);
-            var resultsArray = jsonObject["results"].Children();
-
-            string lastTextInstance = null;
-
-            foreach (var result in resultsArray)
-            {
-                var resultFieldId = result["field_id"].ToString();
-                if (FindValueInList(resultFieldId, zuvaFieldID))
-                {
-                    var extractionsArray = result["extractions"].Children();
-                    foreach (var extraction in extractionsArray)
-                    {
-                        var text = extraction["text"]?.ToString();
-                        if (text != null)
-                        {
-                            lastTextInstance = text;
-                        }
-                    }
-                }
-            }
-
-            return lastTextInstance; // Return the last non-null "text" property found for the specified "field_id"
-        }
-
-        /// <summary>
-        /// Gets the first min 4-digit instance in the extraction results for the specified Field ID.
-        /// </summary>
-        /// <param name="zuvaFieldID">Field ID to filter results.</param>
-        /// <param name="extractionResult">Resulting JSON from calling the ZuvaGetExtractionResult method.</param>
-        /// <returns>First instance of a min 4-digit number.</returns>
-        public string GetFirstNumberFromExtractionResultForField(string zuvaFieldID, string extractionResult)
-        {
-            string firstTextInstance = GetFirstFromExtractionResultForField(zuvaFieldID, extractionResult);
-
-            if (firstTextInstance != null)
-            {
-                Match match = Regex.Match(firstTextInstance, @"\b\d{4,}\b");
-                if (match.Success)
-                {
-                    return match.Value;
-                }
-            }
-
-            return null; // Return null if no suitable number is found
-        }
-
-        /// <summary>
-        /// Gets the last min 4-digit instance in the extraction results for the specified Field ID.
-        /// </summary>
-        /// <param name="zuvaFieldID">Field ID to filter results.</param>
-        /// <param name="extractionResult">Resulting JSON from calling the ZuvaGetExtractionResult method.</param>
-        /// <returns>Last instance of a min 4-digit number.</returns>
-        public string GetLastNumberFromExtractionResultForField(string zuvaFieldID, string extractionResult)
-        {
-            string lastTextInstance = ConcatExtractionResultsForField(zuvaFieldID, extractionResult);
-
-            if (lastTextInstance != null)
-            {
-                Match match = Regex.Match(lastTextInstance, @"\b\d{4,}\b");
-                if (match.Success)
-                {
-                    return match.Value;
-                }
-            }
-
-            return null; // Return null if no suitable number is found
-        }
-
-        /// <summary>
-        /// Gets the sum of all min 4-digit instances in the extraction results for the specified Field ID.
-        /// </summary>
-        /// <param name="zuvaFieldID">Field ID to filter results.</param>
-        /// <param name="extractionResult">Resulting JSON from calling the ZuvaGetExtractionResult method.</param>
-        /// <returns>The sum of all min 4-digit numbers.</returns>
-        public string GetSumOfAllNumbersFromExtractionResultForField(string zuvaFieldID, string extractionResult)
-        {
-            string concatenatedText = ConcatExtractionResultsForField(zuvaFieldID, extractionResult);
-
-            if (concatenatedText != null)
-            {
-                MatchCollection matches = Regex.Matches(concatenatedText, @"\b\d{4,}\b");
-                int sum = 0;
-
-                foreach (Match match in matches)
-                {
-                    if (int.TryParse(match.Value, out int number))
-                    {
-                        sum += number;
-                    }
-                }
-
-                return sum.ToString();
-            }
-
-            return "0"; // Return 0 if no suitable numbers are found or the concatenated text is null
-        }
-
-        /// <summary>
-        /// Gets the first date instance in the extraction results for the specified Field ID.
-        /// </summary>
-        /// <param name="zuvaFieldID">Field ID to filter results.</param>
-        /// <param name="extractionResult">Resulting JSON from calling the ZuvaGetExtractionResult method.</param>
-        /// <returns>First date instance.</returns>
-        public string GetFirstDateFromExtractionResultForField(string zuvaFieldID, string extractionResult)
-        {
-            string concatenatedText = ConcatExtractionResultsForField(zuvaFieldID, extractionResult);
-
-            if (concatenatedText != null)
-            {
-                Match match = Regex.Match(concatenatedText, @"(?i)\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s?\d{1,2}(st|nd|rd|th)?([,.]?\s?(18|19|20)\d{2}|[,.]?\s?\d{2})\b|\b(0?[1-9]|1[0-2])[-./](0?[1-9]|[12][0-9]|3[01])[-./]?(18|19|20)?\d{2}\b");
-
-                if (match.Success)
-                {
-                    DateTime parsedDate;
-                    if (DateTime.TryParse(match.Value, out parsedDate))
-                    {
-                        return parsedDate.ToString("MM/dd/yyyy");
-                    }
-                }
-            }
-            return null; // Return null if no suitable date is found
-        }
-
-        /// <summary>
-        /// Gets the last date instance in the extraction results for the specified Field ID.
-        /// </summary>
-        /// <param name="zuvaFieldID">Field ID to filter results.</param>
-        /// <param name="extractionResult">Resulting JSON from calling the ZuvaGetExtractionResult method.</param>
-        /// <returns>Last date instance.</returns>
-        public string GetLastDateFromExtractionResultForField(string zuvaFieldID, string extractionResult)
-        {
-            string concatenatedText = ConcatExtractionResultsForField(zuvaFieldID, extractionResult);
-
-            if (concatenatedText != null)
-            {
-                MatchCollection matches = Regex.Matches(concatenatedText, @"(?i)\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s?\d{1,2}(st|nd|rd|th)?([,.]?\s?(18|19|20)\d{2}|[,.]?\s?\d{2})\b|\b(0?[1-9]|1[0-2])[-./](0?[1-9]|[12][0-9]|3[01])[-./]?(18|19|20)?\d{2}\b");
-
-                if (matches.Count > 0)
-                {
-                    Match lastMatch = matches[matches.Count - 1];
-                    DateTime parsedDate;
-                    if (DateTime.TryParse(lastMatch.Value, out parsedDate))
-                    {
-                        return parsedDate.ToString("MM/dd/yyyy");
-                    }
-                }
-            }
-
-            return null; // Return null if no suitable date is found
-        }
-
-        /// <summary>
-        /// Gets the earliest date instance in the extraction results for the specified Field ID.
-        /// </summary>
-        /// <param name="zuvaFieldID">Field ID to filter results.</param>
-        /// <param name="extractionResult">Resulting JSON from calling the ZuvaGetExtractionResult method.</param>
-        /// <returns>Earliest date found in the extraction results.</returns>
-        public string GetEarliestDateFromExtractionResultForField(string zuvaFieldID, string extractionResult)
-        {
-            string concatenatedText = ConcatExtractionResultsForField(zuvaFieldID, extractionResult);
-            MatchCollection matches = Regex.Matches(concatenatedText, @"(?i)\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s?\d{1,2}(st|nd|rd|th)?([,.]?\s?(18|19|20)\d{2}|[,.]?\s?\d{2})\b|\b(0?[1-9]|1[0-2])[-./](0?[1-9]|[12][0-9]|3[01])[-./]?(18|19|20)?\d{2}\b");
-
-            DateTime earliestDate = DateTime.MaxValue;
-            foreach (Match match in matches)
-            {
-                DateTime parsedDate;
-                if (DateTime.TryParse(match.Value, out parsedDate))
-                {
-                    if (parsedDate < earliestDate)
-                    {
-                        earliestDate = parsedDate;
-                    }
-                }
-            }
-
-            if (earliestDate != DateTime.MaxValue)
-            {
-                return earliestDate.ToString("MM/dd/yyyy");
-            }
-
-            return null; // Return null if no suitable date is found
-        }
-
-        /// <summary>
-        /// Gets the latest date instance in the extraction results for the specified Field ID.
-        /// </summary>
-        /// <param name="zuvaFieldID">Field ID to filter results.</param>
-        /// <param name="extractionResult">Resulting JSON from calling the ZuvaGetExtractionResult method.</param>
-        /// <returns>Earliest date found in the extraction results.</returns>
-        public string GetLatestDateFromExtractionResultForField(string zuvaFieldID, string extractionResult)
-        {
-            string concatenatedText = ConcatExtractionResultsForField(zuvaFieldID, extractionResult);
-            MatchCollection matches = Regex.Matches(concatenatedText, @"(?i)\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s?\d{1,2}(st|nd|rd|th)?([,.]?\s?(18|19|20)\d{2}|[,.]?\s?\d{2})\b|\b(0?[1-9]|1[0-2])[-./](0?[1-9]|[12][0-9]|3[01])[-./]?(18|19|20)?\d{2}\b");
-
-            DateTime latestDate = DateTime.MinValue;
-            foreach (Match match in matches)
-            {
-                DateTime parsedDate;
-                if (DateTime.TryParse(match.Value, out parsedDate))
-                {
-                    if (parsedDate > latestDate)
-                    {
-                        latestDate = parsedDate;
-                    }
-                }
-            }
-
-            if (latestDate != DateTime.MaxValue)
-            {
-                return latestDate.ToString("MM/dd/yyyy");
-            }
-
-            return null; // Return null if no suitable date is found
-        }
-
-        /// <summary>
-        /// Gets the Zuva-normalized information for the given extraction result
-        /// </summary>
-        /// <param name="zuvaFieldID">Field ID to filter results.</param>
-        /// <param name="extractionResult">Resulting JSON from calling the ZuvaGetExtractionResult method.</param>
-        /// <param name="normalizationField">String which specifies which normalization entry to get; options are "currencies", "dates", "durations".</param>
-        /// <returns>The sum of the two integers.</returns>
-        public string GetNormalizationFieldFromExtractionResultForField(string jsonString, string zuvaFieldID, string normalizationField)
-        {
-            JObject jsonObject = JObject.Parse(jsonString);
-            var resultsArray = jsonObject["results"].Children();
-
-            foreach (var result in resultsArray)
-            {
-                var resultFieldId = result["field_id"].ToString();
-                if (FindValueInList(resultFieldId, zuvaFieldID))
-                {
-                    var extractionsArray = result["extractions"].Children();
-                    foreach (var extraction in extractionsArray)
-                    {
-                        //if (!string.IsNullOrEmpty(normalizationElement.First.ToString()))
-                        if (extraction.First.ToString().Contains(normalizationField))
-                        {
-                            var normalizationElement = extraction[normalizationField];
-
-                            switch (normalizationField)
-                            {
-                                case "currencies":
-                                    string firstCurrency = normalizationElement.First.ToString(); //GetJSONPropertyValue(extraction, "0");
-
-                                    if (!string.IsNullOrEmpty(firstCurrency))
-                                    {
-                                        string value = GetJSONPropertyValue(firstCurrency, "value");
-                                        string symbol = GetJSONPropertyValue(firstCurrency, "symbol");
-                                        string precision = GetJSONPropertyValue(firstCurrency, "precision");
-
-                                        if (!string.IsNullOrEmpty(value) && !string.IsNullOrEmpty(symbol) && !string.IsNullOrEmpty(precision))
-                                        {
-                                            decimal decimalValue;
-                                            if (decimal.TryParse(value, out decimalValue))
-                                            {
-                                                int intPrecision;
-                                                if (int.TryParse(precision, out intPrecision))
-                                                {
-                                                    return $"{symbol}{(decimalValue / (decimal)Math.Pow(10, intPrecision)):F2}";
-                                                }
-                                            }
-                                        }
-                                    }
-                                    break;
-
-                                case "dates":
-                                    string firstDate = normalizationElement.First.ToString(); //GetJSONPropertyValue(extraction, "0");
-
-                                    if (!string.IsNullOrEmpty(firstDate))
-                                    {
-                                        string day = GetJSONPropertyValue(firstDate, "day");
-                                        string month = GetJSONPropertyValue(firstDate, "month");
-                                        string year = GetJSONPropertyValue(firstDate, "year");
-
-                                        if (!string.IsNullOrEmpty(day) && !string.IsNullOrEmpty(month) && !string.IsNullOrEmpty(year))
-                                        {
-                                            return $"{month:D2}/{day:D2}/{year:D4}";
-                                        }
-                                    }
-                                    break;
-
-                                case "durations":
-                                    string firstDuration = normalizationElement.First.ToString(); //GetJSONPropertyValue(normalizationElement, "0");
-
-                                    if (!string.IsNullOrEmpty(firstDuration))
-                                    {
-                                        string unit = GetJSONPropertyValue(firstDuration, "unit");
-                                        string value = GetJSONPropertyValue(firstDuration, "value");
-
-                                        if (!string.IsNullOrEmpty(unit) && !string.IsNullOrEmpty(value))
-                                        {
-                                            return $"{value} {unit}";
-                                        }
-                                    }
-                                    break;
-                            }
-                        }
-                    }
-                }
-            }
-
-            return null; // Return null if the normalization field is not found or the properties are missing
-        }
 
         #endregion "Public Methods"
 
