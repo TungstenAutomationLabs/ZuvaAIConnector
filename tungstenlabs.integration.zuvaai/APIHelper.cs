@@ -396,11 +396,11 @@ namespace tungstenlabs.integration.zuvaai
                         {
                             case 0: break;
                             case 1:
-                                temp = (GetFirstFromExtractionResultForField(info.ZuvaFileID, extractionresult)) + " -- ";
+                                temp = (GetFirstFromExtractionResultForField(fieldconfig.ZuvaFieldIDs, extractionresult)) + " -- ";
                                 break;
 
                             case 2:
-                                temp = (ConcatExtractionResultsForField(info.ZuvaFileID, extractionresult)) + " -- ";
+                                temp = (ConcatExtractionResultsForField(fieldconfig.ZuvaFieldIDs, extractionresult)) + " -- ";
                                 break;
 
                             default:
@@ -416,8 +416,10 @@ namespace tungstenlabs.integration.zuvaai
                                 case 1: norm = "dates"; break;
                                 case 2: norm = "currencies"; break;
                                 case 3: norm = "durations"; break;
+                                default: break;
                             }
-                            temp = temp + GetNormalizationFieldFromExtractionResultForField(extractionresult, info.ZuvaFileID, norm);
+                            if (fieldconfig.NormalizationType > 0 || fieldconfig.NormalizationType < 4)
+                                temp = temp + GetNormalizationFieldFromExtractionResultForField(extractionresult, fieldconfig.ZuvaFieldIDs, norm);
                         }
 
                         if (temp.EndsWith(" -- "))
