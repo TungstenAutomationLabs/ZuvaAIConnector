@@ -16,7 +16,7 @@ namespace tungstenlabs.integration.zuvaai
     public class ZuvaFieldConfig
     {
         public string ZuvaFieldIDs { get; set; }
-        public short TransformationType { get; set; } //0-None, 1-First, 2-Concat all
-        public short NormalizationType { get; set; } //1-Date, 2-Currency, 3-Durations
+        public short TransformationType { get; set; } //0-None, 1-First, 2-Concat all, 3-Get Answer
+        public short NormalizationType { get; set; } //0-None, 1-Date, 2-Currency, 3-Durations
     }
 }

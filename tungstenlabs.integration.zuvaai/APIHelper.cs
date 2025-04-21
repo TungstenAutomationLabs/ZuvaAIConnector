@@ -396,11 +396,15 @@ namespace tungstenlabs.integration.zuvaai
                         {
                             case 0: break;
                             case 1:
-                                temp = (GetFirstFromExtractionResultForField(fieldconfig.ZuvaFieldIDs, extractionresult)) + " -- ";
+                                temp = GetFirstFromExtractionResultForField(fieldconfig.ZuvaFieldIDs, extractionresult) + " -- ";
                                 break;
 
                             case 2:
-                                temp = (ConcatExtractionResultsForField(fieldconfig.ZuvaFieldIDs, extractionresult)) + " -- ";
+                                temp = ConcatExtractionResultsForField(fieldconfig.ZuvaFieldIDs, extractionresult) + " -- ";
+                                break;
+
+                            case 3:
+                                temp = GetAnswerResultsForField(fieldconfig.ZuvaFieldIDs, extractionresult) + " -- ";
                                 break;
 
                             default:
