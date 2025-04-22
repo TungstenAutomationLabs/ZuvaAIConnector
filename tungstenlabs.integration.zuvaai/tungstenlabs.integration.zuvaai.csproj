@@ -58,6 +58,7 @@
     <Compile Include="JsonBuilder.cs" />
     <Compile Include="APIHelper.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="ZuvaRequestInfo.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="ILMerge.props" />

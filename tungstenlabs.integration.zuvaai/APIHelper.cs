@@ -51,6 +51,7 @@
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.Eventing.Reader;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -380,6 +381,67 @@ namespace tungstenlabs.integration.zuvaai
             }
         }
 
+        public List<string> GetZuvaExtraction(List<ZuvaRequestInfo> list) 
+        {
+            List<string> result = new List<string>();
+            string temp = "";
+            foreach (ZuvaRequestInfo info in list)
+            {
+                foreach (ZuvaFieldConfig fieldconfig in info.ZuvaFieldConfigCollection)
+                {
+                    string extractionresult = ZuvaGetExtractionResult(info.ZuvaFileID, fieldconfig.ZuvaFieldIDs, info.ZuvaToken);
+                    if (!extractionresult.ToLower().Contains("null"))
+                    {
+                        switch (fieldconfig.TransformationType)
+                        {
+                            case 0: break;
+                            case 1:
+                                temp = GetFirstFromExtractionResultForField(fieldconfig.ZuvaFieldIDs, extractionresult) + " -- ";
+                                break;
+
+                            case 2:
+                                temp = ConcatExtractionResultsForField(fieldconfig.ZuvaFieldIDs, extractionresult) + " -- ";
+                                break;
+
+                            case 3:
+                                temp = GetAnswerResultsForField(fieldconfig.ZuvaFieldIDs, extractionresult) + " -- ";
+                                break;
+
+                            default:
+                                temp = ("TransformationType Unknown -- ");
+                                break;
+                        }
+
+                        if (fieldconfig.NormalizationType > 0 && fieldconfig.NormalizationType < 4)
+                        {
+                            string norm = "";
+                            switch (fieldconfig.NormalizationType)
+                            {
+                                case 1: norm = "dates"; break;
+                                case 2: norm = "currencies"; break;
+                                case 3: norm = "durations"; break;
+                                default: break;
+                            }
+                            if (fieldconfig.NormalizationType > 0 || fieldconfig.NormalizationType < 4)
+                                temp = temp + GetNormalizationFieldFromExtractionResultForField(extractionresult, fieldconfig.ZuvaFieldIDs, norm);
+                        }
+
+                        if (temp.EndsWith(" -- "))
+                        {
+                            temp = temp.Substring(0, temp.Length - " -- ".Length);
+                        }
+
+                        result.Add(temp);
+
+                    }
+                    else
+                        result.Add("No extraction returned");
+                }
+            }
+
+            return result;
+        }
+
         /// <summary>
         /// Concatenates all text extracted from the results for the specified Field ID.
         /// </summary>
@@ -465,13 +527,18 @@ namespace tungstenlabs.integration.zuvaai
         }
 
 
+
+        #endregion "Public Methods"
+
+        #region "Private Methods"
+
         /// <summary>
         /// Concatenates all text extracted from the results for the specified Field ID.
         /// </summary>
         /// <param name="zuvaFieldID">Field ID to filter results.</param>
         /// <param name="extractionResult">Resulting JSON from calling the ZuvaGetExtractionResult method.</param>
         /// <returns>Concatenated text results.</returns>
-        public string ConcatExtractionResultsForField(string zuvaFieldID, string extractionResult)
+        private string ConcatExtractionResultsForField(string zuvaFieldID, string extractionResult)
         {
             string concatenatedText = "";
 
@@ -498,10 +565,96 @@ namespace tungstenlabs.integration.zuvaai
             return concatenatedText;
         }
 
+        /// <summary>
+        /// Gets the Zuva-normalized information for the given extraction result
+        /// </summary>
+        /// <param name="zuvaFieldID">Field ID to filter results.</param>
+        /// <param name="extractionResult">Resulting JSON from calling the ZuvaGetExtractionResult method.</param>
+        /// <param name="normalizationField">String which specifies which normalization entry to get; options are "currencies", "dates", "durations".</param>
+        /// <returns>The sum of the two integers.</returns>
+        private string GetNormalizationFieldFromExtractionResultForField(string jsonString, string zuvaFieldID, string normalizationField)
+        {
+            JObject jsonObject = JObject.Parse(jsonString);
+            var resultsArray = jsonObject["results"].Children();
 
-        #endregion "Public Methods"
+            foreach (var result in resultsArray)
+            {
+                var resultFieldId = result["field_id"].ToString();
+                if (FindValueInList(resultFieldId, zuvaFieldID))
+                {
+                    var extractionsArray = result["extractions"].Children();
+                    foreach (var extraction in extractionsArray)
+                    {
 
-        #region "Private Methods"
+                        //if (!string.IsNullOrEmpty(normalizationElement.First.ToString()))
+                        if (extraction.First.ToString().Contains(normalizationField))
+                        {
+                            var normalizationElement = extraction[normalizationField];
+
+                            switch (normalizationField)
+                            {
+                                case "currencies":
+                                    string firstCurrency = normalizationElement.First.ToString(); //GetJSONPropertyValue(extraction, "0");
+
+                                    if (!string.IsNullOrEmpty(firstCurrency))
+                                    {
+                                        string value = GetJSONPropertyValue(firstCurrency, "value");
+                                        string symbol = GetJSONPropertyValue(firstCurrency, "symbol");
+                                        string precision = GetJSONPropertyValue(firstCurrency, "precision");
+
+                                        if (!string.IsNullOrEmpty(value) && !string.IsNullOrEmpty(symbol) && !string.IsNullOrEmpty(precision))
+                                        {
+                                            decimal decimalValue;
+                                            if (decimal.TryParse(value, out decimalValue))
+                                            {
+                                                int intPrecision;
+                                                if (int.TryParse(precision, out intPrecision))
+                                                {
+                                                    return $"{symbol}{(decimalValue / (decimal)Math.Pow(10, intPrecision)):F2}";
+                                                }
+                                            }
+                                        }
+                                    }
+                                    break;
+
+                                case "dates":
+                                    string firstDate = normalizationElement.First.ToString(); //GetJSONPropertyValue(extraction, "0");
+
+                                    if (!string.IsNullOrEmpty(firstDate))
+                                    {
+                                        string day = GetJSONPropertyValue(firstDate, "day");
+                                        string month = GetJSONPropertyValue(firstDate, "month");
+                                        string year = GetJSONPropertyValue(firstDate, "year");
+
+                                        if (!string.IsNullOrEmpty(day) && !string.IsNullOrEmpty(month) && !string.IsNullOrEmpty(year))
+                                        {
+                                            return $"{month:D2}/{day:D2}/{year:D4}";
+                                        }
+                                    }
+                                    break;
+
+                                case "durations":
+                                    string firstDuration = normalizationElement.First.ToString(); //GetJSONPropertyValue(normalizationElement, "0");
+
+                                    if (!string.IsNullOrEmpty(firstDuration))
+                                    {
+                                        string unit = GetJSONPropertyValue(firstDuration, "unit");
+                                        string value = GetJSONPropertyValue(firstDuration, "value");
+
+                                        if (!string.IsNullOrEmpty(unit) && !string.IsNullOrEmpty(value))
+                                        {
+                                            return $"{value} {unit}";
+                                        }
+                                    }
+                                    break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            return null; // Return null if the normalization field is not found or the properties are missing
+        }
 
         private byte[] GetKTADocumentFile(string docID, string ktaSDKUrl, string sessionID)
         {
@@ -556,6 +709,36 @@ namespace tungstenlabs.integration.zuvaai
             }
         }
 
+        /// <summary>
+        /// Gets the first instance of extraction results for the specified Field ID.
+        /// </summary>
+        /// <param name="zuvaFieldID">Field ID to filter results.</param>
+        /// <param name="extractionResult">Resulting JSON from calling the ZuvaGetExtractionResult method.</param>
+        /// <returns>First instance of text results.</returns>
+        private string GetFirstFromExtractionResultForField(string zuvaFieldID, string extractionResult)
+        {
+            JObject jsonObject = JObject.Parse(extractionResult);
+            var resultsArray = jsonObject["results"].Children();
+
+            foreach (var result in resultsArray)
+            {
+                var resultFieldId = result["field_id"].ToString();
+                if (FindValueInList(resultFieldId, zuvaFieldID))
+                {
+                    var extractionsArray = result["extractions"].Children();
+                    foreach (var extraction in extractionsArray)
+                    {
+                        var text = extraction["text"]?.ToString();
+                        if (text != null)
+                        {
+                            return text;
+                        }
+                    }
+                }
+            }
+
+            return null; // Return null if no matching "text" property is found for the specified "field_id"
+        }
         private static string GetJSONPropertyValue(string jsonString, string propertyName)
         {
             JToken root = JToken.Parse(jsonString);
